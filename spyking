@@ -12,23 +12,23 @@ def main():
     pass
 
 
-@main.command()
-@click.argument('filename', type=click.Path(exists=True))
-def copy_raw(filename):
-    """Create copy of .raw file.
+# @main.command()
+# @click.argument('filename', type=click.Path(exists=True))
+# def copy_raw(filename):
+#     """Create copy of .voltages file.
+#     A new .data file will be created. Spyking-circus does destructive whitening
+#     so this is a cationary step to avoid changing the data."""
 
-    A new .data file will be created. Spyking-circus does destructive whitening
-    so this is a cationary step to avoid changing the data."""
+#     copy_raw_helper(filename)
 
-    copy_raw_helper(filename)
 
-def copy_raw_helper(filename):
-    name, ext = os.path.splitext(filename)
-    new_filename = name + '.data'
-    os.system('cp "{}" "{}"'.format(filename, new_filename))
-    print('Created copy of {}'.format(filename))
+# def copy_raw_helper(filename):
+#     name, ext = os.path.splitext(filename)
+#     new_filename = name + '.data'
+#     os.system('cp "{}" "{}"'.format(filename, new_filename))
+#     print('Created copy of {}'.format(filename))
 
-    return new_filename
+#     return new_filename
 
 
 @main.command()
@@ -37,12 +37,17 @@ def copy_raw_helper(filename):
               help="Spyking Circus Probe file")
 def gen_params(filename, probe):
     """Create params file for Spyking Circus with default settings."""
-
+    # TODO gen probe file based on header EL names / order
     name = os.path.splitext(filename)[0]
+    new_filename = name + ".params"
+
+    # skip if params exists
+    if os.path.isfile(new_filename):
+        return
     sampling_rate = get_sampling_rate(filename)
     params = re.sub('{{rate}}', str(sampling_rate), spyking_params)
     params = re.sub('{{probe}}', probe, params)
-    with open(name + ".params", 'w') as file:
+    with open(new_filename, 'w') as file:
         file.write(params)
     print('Generated params for {}'.format(filename))
 
@@ -65,16 +70,21 @@ performed, but a subset x,y can be done, using the syntax -m x,y. Steps are:
 @click.option('--method', '-m',
               default="filtering,whitening,clustering,fitting",
               help=spyking_circus_method_help)
-@click.option('-c', default=4, help="Number of CPU")
-@click.option('-g', default=0, help="Number of GPU")
+@click.option('-c', default="4", help="Number of CPU")
+@click.option('-g', default="0", help="Number of GPU")
 def spyking_circus(filename, method, c, g):
     """Run spyking circus."""
+
     # use the following line for docker containers
-    # init_hosts()
+    if os.environ['DOCKER']:
+        print('init hosts')
+        init_hosts()
+        
     command = 'spyking-circus "{}" -m {} -c {} -g {}'.format(filename,
                                                              method,
                                                              c,
                                                              g)
+
     os.system(command)
 
 
@@ -83,18 +93,20 @@ def spyking_circus(filename, method, c, g):
 @click.option('--method', '-m',
               default="filtering,whitening,clustering,fitting",
               help=spyking_circus_method_help)
-@click.option('-c', default=4, help="Number of CPU")
-@click.option('-g', default=0, help="Number of GPU")
+@click.option('-c', default="4", help="Number of CPU")
+@click.option('-g', default="0", help="Number of GPU")
 @click.option('--probe', '-p', default='/probes/mcs_60.prb',
               help="Spyking Circus Probe file")
 @click.pass_context
 def run_all(context, filename, method, c, g, probe):
     """Create data file, create params & run Spyking Circus."""
+    print('inside')
     # call fix_header and gen_params
-    new_filename = copy_raw_helper(filename=filename)
-    # context.invoke(gen_params, filename=filename)
-    context.invoke(gen_params, filename=new_filename, probe=probe)
-    context.invoke(spyking_circus, filename=new_filename, method=method, c=c, g=g)
+    # new_filename = copy_raw_helper(filename)
+    # context.invoke(fix_header, filename=filename)
+
+    context.invoke(gen_params, filename=filename, probe=probe)
+    context.invoke(spyking_circus, filename=filename, method=method, c=c, g=g)
 
 # Functions
 
@@ -114,13 +126,15 @@ def get_sampling_rate(filename):
 
 def get_header(filename):
     header = ""
-    header_end = b'EOH\r\n'
+    header_end = "EOH\r\n".encode("Windows-1252")
     num_bytes = 0
     with open(filename, mode='rb') as file:
         for line in file:
             num_bytes += len(line)
-            header += line.decode("Windows-1252")
+            header += line.decode("Windows-1252", errors='replace')
             if line == header_end:
+                break
+            if num_bytes > 2000:
                 break
     return header, num_bytes
 # Strings

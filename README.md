@@ -1,1 +1,1 @@
-docker build -t spyking-circus . && docker run -v ~/Desktop/test/:/data spyking-circus /spyking run_all "/data/E11_R2_AMES_15'_10s_wait20s.raw"
+docker build -t spyking-circus . && docker run --rm -v ~/Desktop/test/:/data spyking-circus /spyking run_all "/data/E2_R2_DAD_55min_moving bar.voltages"

@@ -13,4 +13,6 @@ COPY probes/ /probes
 
 RUN mkdir ~/spyking-circus
 
+ENV DOCKER=True
+
 CMD /spyking
