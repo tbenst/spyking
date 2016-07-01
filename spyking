@@ -78,7 +78,7 @@ def spyking_circus(filename, method, c, g):
     # use the following line for docker containers
     if os.environ['DOCKER']:
         print('init hosts')
-        init_hosts()
+        c = init_hosts()
         
     command = 'spyking-circus "{}" -m {} -c {} -g {}'.format(filename,
                                                              method,
@@ -117,6 +117,7 @@ def init_hosts():
         num_processors = int(file.readline())
     with open("/root/spyking-circus/circus.hosts", 'w+') as file:
         file.write("localhost:{}".format(str(num_processors)))
+    return num_processors
 
 
 def get_sampling_rate(filename):
